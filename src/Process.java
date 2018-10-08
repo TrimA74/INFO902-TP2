@@ -6,6 +6,7 @@ public class Process  implements Runnable {
     private EventBusService bus;
     private boolean alive;
     private boolean dead;
+    private int horloge;
     private static int nbProcess = 0;
     private int id = Process.nbProcess++;
 
@@ -19,14 +20,19 @@ public class Process  implements Runnable {
     	this.thread.setName(name);
     	this.alive = true;
     	this.dead = false;
+    	this.horloge = 0;
     	this.thread.start();
     }
 
     // Declaration de la methode de callback invoquee lorsqu'un message de type Bidule transite sur le bus
-    @Subscribe
-    public void onTrucSurBus(Bidule b){
-    	System.out.println(Thread.currentThread().getName() + " receives: " + b.getMachin() + " for " + this.thread.getName());
+    /*
+	@Subscribe
+    public void onTrucSurBus(Message message){
+    	System.out.println(Thread.currentThread().getName() + " receives: " + message.getPayload() + " for " + this.thread.getName());
+    	this.horloge = Math.max(message.getStamping(),this.horloge) + 1;
     }
+
+    */
 	
     public void run(){
     	int loop = 0;
@@ -39,10 +45,9 @@ public class Process  implements Runnable {
     			Thread.sleep(500);
     			
     			if(Thread.currentThread().getName().equals("P1")){
-    				Bidule b1 = new Bidule("ga");
-    				Bidule b2 = new Bidule("bu");
-    				System.out.println(Thread.currentThread().getName() + " send : " + b1.getMachin());
-    				bus.postEvent(b1);
+
+    				//broadcast("mon payload");
+    				sendTo("mon payload",2);
     			}
 
     		}catch(Exception e){
@@ -57,6 +62,38 @@ public class Process  implements Runnable {
     	System.out.println(Thread.currentThread().getName() + " stoped");
 	this.dead = true;
     }
+
+    public void broadcast(Object payload){
+    	this.horloge++;
+		BroadcastMessage broadcastMessage = new BroadcastMessage(this.horloge, payload, this.thread.getName());
+		System.out.println(Thread.currentThread().getName() + " send : " + broadcastMessage.getPayload());
+		bus.postEvent(broadcastMessage);
+	}
+
+	@Subscribe
+	public void onBroadcast(BroadcastMessage broadcastMessage){
+    	if(broadcastMessage.getSender() != this.thread.getName()){
+			System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
+			this.horloge = Math.max(broadcastMessage.getStamping(),this.horloge) + 1;
+		}
+		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
+	}
+
+	public void sendTo(Object payload, int to){
+		this.horloge++;
+    	MessageTo messageTo = new MessageTo(this.horloge,payload, "P" + Integer.toString(to));
+		System.out.println(Thread.currentThread().getName() + " send : " + messageTo.getPayload());
+		bus.postEvent(messageTo);
+	}
+
+	@Subscribe
+	public void onReceive(MessageTo messageTo){
+		if(messageTo.getReceiver().equals(this.thread.getName())){
+			System.out.println(Thread.currentThread().getName() + " receives: " + messageTo.getPayload() + " for " + this.thread.getName());
+			this.horloge = Math.max(messageTo.getStamping(),this.horloge) + 1;
+
+		}
+	}
 
     public void waitStoped(){
 	while(!this.dead){
