@@ -1,20 +1,22 @@
 
 public class Launcher{
-	 
-	 public static void main(String[] args){
 
-	     Process p1 = new Process("P1");
-	     Process p2 = new Process("P2");
-	     Process p3 = new Process("P3");
+    public static void main(String[] args){
 
-	     try{
-		 Thread.sleep(2000);
-	     }catch(Exception e){
-		 e.printStackTrace();	 
-	     }
+        final int NB_THREAD = 3;
+        Process p1 = new Process("1",NB_THREAD);
+        Process p2 = new Process("2",NB_THREAD);
+        Process p3 = new Process("3",NB_THREAD);
 
-	     p1.stop();
-	     p2.stop();
-	     p3.stop();
-	 }
+
+        try{
+            Thread.sleep(2000);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
+        p1.stop();
+        p2.stop();
+        p3.stop();
+    }
 }
