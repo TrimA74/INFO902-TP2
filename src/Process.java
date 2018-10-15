@@ -1,5 +1,8 @@
 import com.google.common.eventbus.Subscribe;
 
+import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
+
 
 public class Process  implements Runnable {
     private Thread thread;
@@ -9,9 +12,11 @@ public class Process  implements Runnable {
     private int horloge;
     private static int nbProcess = 0;
     private int id = Process.nbProcess++;
-    private boolean token;
+    private Token token;
     private boolean wantToken;
     private int nb_thread;
+    private int synchronizeCheck = 0;
+    private boolean isReadyToSynchronize = false;
 
     public Process(String name, int nbThread){
 
@@ -24,7 +29,7 @@ public class Process  implements Runnable {
     	this.alive = true;
     	this.dead = false;
     	this.horloge = 0;
-    	this.token = false;
+    	this.token = null;
     	this.wantToken = false;
     	this.nb_thread = nbThread;
     	this.thread.start();
@@ -47,14 +52,24 @@ public class Process  implements Runnable {
 		System.out.println(Thread.currentThread().getName() + " id :" + this.id);
 		
     	while(this.alive){
+
     		System.out.println(Thread.currentThread().getName() + " Loop : " + loop);
     		try{
-    			Thread.sleep(500);
-    			
-    			if(Thread.currentThread().getName().equals("1")){
+				Thread.sleep(500);
+				/*
+				request();
+				System.out.println("je suis en section critique");
+				release();
+				System.out.println("je suis plus en section critique");
+				*/
 
+    			
+    			if(Thread.currentThread().getName().equals(Integer.toString(1))){
     				//broadcast("mon payload");
-    				sendTo("mon payload",2);
+    				//sendTo("mon payload",2);
+					//System.out.println("coucou");
+					synchronize();
+
     			}
 
     		}catch(Exception e){
@@ -69,6 +84,41 @@ public class Process  implements Runnable {
     	System.out.println(Thread.currentThread().getName() + " stoped");
 	this.dead = true;
     }
+
+    public void initToken(){
+    	int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
+    	System.out.println(this.thread.getName() + " to" + Integer.toString(to));
+		Token token = new Token(Integer.toString(to));
+		bus.postEvent(token);
+	}
+
+	public void synchronize() throws Exception {
+		this.synchronizeCheck = 1;
+		this.isReadyToSynchronize = true;
+		Synchronizer synchronizer = new Synchronizer(this.thread.getName(),"");
+		bus.postEvent(synchronizer);
+		while(this.synchronizeCheck < this.nb_thread){
+			Thread.sleep(500);
+		}
+		System.out.println("all is synchronized");
+	}
+
+	@Subscribe
+	public void onSynchronize(Synchronizer synchronizer){
+    	if(this.thread.getName().equals(synchronizer.getInitializer())){
+    		this.synchronizeCheck++;
+		}else {
+    		while(!this.isReadyToSynchronize){
+    			try {
+					Thread.sleep(500);
+				}
+				catch (Exception e) {
+
+				}
+			}
+			bus.postEvent(synchronizer);
+		}
+	}
 
     public void broadcast(Object payload){
     	this.horloge++;
@@ -103,21 +153,30 @@ public class Process  implements Runnable {
 	}
 
 	@Subscribe
-	public void onToken(Token message){
-		if(this.wantToken){
-			this.token = true;
-		} else {
-			sendTo("mon payload",Integer.valueOf((this.thread.getName())+1) % this.nb_thread);
+	public void onToken(Token token){
+		if(token.getReceiver().equals(this.thread.getName())) {
+			if (this.wantToken) {
+				this.token = token;
+			} else {
+				int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
+				System.out.println("sending token to " + to);
+				token.setReceiver(Integer.toString(to));
+				bus.postEvent(token);
+			}
 		}
 	}
 
 	public void release (){
-
+		this.wantToken = false;
+		int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
+		this.token.setReceiver(Integer.toString(to));
+		bus.postEvent(token);
+		this.token= null;
 	}
 
 	public void request(){
     	this.wantToken = true;
-    	while(!this.token){
+    	while(this.token == null){
     		try {
 				Thread.sleep(200);
 			} catch (Exception e){
@@ -125,7 +184,6 @@ public class Process  implements Runnable {
 			}
 
 		}
-
 	}
 
     public void waitStoped(){
