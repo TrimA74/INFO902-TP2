@@ -18,7 +18,6 @@ public class Process  implements Runnable {
     private boolean wantToken;
     private int nb_thread;
     private int synchronizeCheck = 0;
-    private boolean isReadyToSynchronize = false;
     private int de;
     private ArrayList<Integer> otherDe;
     private int nbResultReceived;
@@ -62,7 +61,7 @@ public class Process  implements Runnable {
 
 		System.out.println(Thread.currentThread().getName() + " id :" + this.id);
 		
-    	while(this.alive){
+    	while(this.alive && loop < 3){
 
     		System.out.println(Thread.currentThread().getName() + " Loop : " + loop);
     		try{
@@ -74,6 +73,17 @@ public class Process  implements Runnable {
 				{
 					Thread.sleep(500);
 				}
+				nbResultReceived = 0;
+
+				//affichage otherDe
+				System.out.println("affichage de otherDe dans " +this.thread.getName());
+				for(int i=0; i<this.otherDe.size(); i++)
+				{
+					System.out.println(this.otherDe.get(i));
+				}
+				System.out.println("fin affichage de otherDe dans " +this.thread.getName());
+
+
 				boolean max = true;
 				for(int i=0; i<this.otherDe.size(); i++)
 				{
@@ -83,7 +93,7 @@ public class Process  implements Runnable {
 
 				if(max){
 					request();
-					System.out.println("valuede" + this.de);
+					System.out.println("value max est de" + this.de);
 					PrintWriter writer = new PrintWriter("results.txt", "UTF-8");
 					writer.println(Thread.currentThread().getName() + " ecrit dans le fichier : " + this.de);
 					writer.close();
@@ -91,6 +101,9 @@ public class Process  implements Runnable {
 				}
 
 				synchronize();
+				Thread.sleep(1000);
+				System.out.println("------------------------------------------------------------------");
+				Thread.sleep(1000);
 
 
     		}catch(Exception e){
@@ -113,19 +126,19 @@ public class Process  implements Runnable {
 	}
 
 	public void synchronize() throws Exception {
-		this.synchronizeCheck = 0;
-		this.isReadyToSynchronize = true;
 		Synchronizer synchronizer = new Synchronizer(this.thread.getName(),"");
 		bus.postEvent(synchronizer);
-		while(this.synchronizeCheck < this.nb_thread){
+		System.out.println(this.thread.getName() + " à envoyé message de syncro");
+		while(this.synchronizeCheck < this.nb_thread-1){
 			Thread.sleep(500);
 		}
-		System.out.println("all is synchronized");
-		this.isReadyToSynchronize = false;
+		this.synchronizeCheck = 0;
+		System.out.println(this.thread.getName() + " is synchronized");
 	}
 
 	@Subscribe
 	public void onSynchronize(Synchronizer synchronizer){
+		System.out.println(this.thread.getName() + " a recu message de syncro" );
     	this.synchronizeCheck++;
 	}
 
@@ -149,7 +162,7 @@ public class Process  implements Runnable {
 			//System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
 			this.horloge = Math.max(broadcastMessage.getStamping(),this.horloge) + 1;
 		}
-		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
+		//System.out.println(this.thread.getName() + " stamping : " + this.horloge);
 	}
 
 	@Subscribe
@@ -159,7 +172,7 @@ public class Process  implements Runnable {
 			this.otherDe.set(Integer.valueOf(deMessage.getSender()), (Integer)deMessage.getPayload());
 			this.nbResultReceived++;
 		}
-		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
+		//System.out.println(this.thread.getName() + " stamping : " + this.horloge);
 	}
 
 	public void sendTo(Object payload, int to){
@@ -186,6 +199,12 @@ public class Process  implements Runnable {
 			} else {
 				int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
 				token.setReceiver(Integer.toString(to));
+				//juste pour pas que ça aille trop vite (j'espere ça evitera des lag)
+				try {
+					Thread.sleep(200);
+				}catch (Exception e){
+					e.printStackTrace();
+				}
 				if(!this.dead){
 					bus.postEvent(token);
 				}
