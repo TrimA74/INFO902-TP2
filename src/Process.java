@@ -1,7 +1,9 @@
 import com.google.common.eventbus.Subscribe;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 
 public class Process  implements Runnable {
@@ -17,6 +19,9 @@ public class Process  implements Runnable {
     private int nb_thread;
     private int synchronizeCheck = 0;
     private boolean isReadyToSynchronize = false;
+    private int de;
+    private ArrayList<Integer> otherDe;
+    private int nbResultReceived;
 
     public Process(String name, int nbThread){
 
@@ -33,6 +38,12 @@ public class Process  implements Runnable {
     	this.wantToken = false;
     	this.nb_thread = nbThread;
     	this.thread.start();
+    	otherDe = new ArrayList<>();
+    	for(int i=0; i < this.nb_thread;i++){
+    		otherDe.add(i,0);
+		}
+		this.nbResultReceived = 0;
+
     }
 
     // Declaration de la methode de callback invoquee lorsqu'un message de type Bidule transite sur le bus
@@ -56,21 +67,31 @@ public class Process  implements Runnable {
     		System.out.println(Thread.currentThread().getName() + " Loop : " + loop);
     		try{
 				Thread.sleep(500);
-				/*
-				request();
-				System.out.println("je suis en section critique");
-				release();
-				System.out.println("je suis plus en section critique");
-				*/
+				this.de = 1 + (int)(Math.random() * 6);
+				broadcastDe(this.de);
 
-    			
-    			if(Thread.currentThread().getName().equals(Integer.toString(1))){
-    				//broadcast("mon payload");
-    				//sendTo("mon payload",2);
-					//System.out.println("coucou");
-					synchronize();
+				while(nbResultReceived<this.nb_thread-1)
+				{
+					Thread.sleep(500);
+				}
+				boolean max = true;
+				for(int i=0; i<this.otherDe.size(); i++)
+				{
+					if(this.otherDe.get(i) >= this.de)
+						max = false;
+				};
 
-    			}
+				if(max){
+					request();
+					System.out.println("valuede" + this.de);
+					PrintWriter writer = new PrintWriter("results.txt", "UTF-8");
+					writer.println(Thread.currentThread().getName() + " ecrit dans le fichier : " + this.de);
+					writer.close();
+					release();
+				}
+
+				synchronize();
+
 
     		}catch(Exception e){
     			e.printStackTrace();
@@ -87,13 +108,12 @@ public class Process  implements Runnable {
 
     public void initToken(){
     	int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
-    	System.out.println(this.thread.getName() + " to" + Integer.toString(to));
 		Token token = new Token(Integer.toString(to));
 		bus.postEvent(token);
 	}
 
 	public void synchronize() throws Exception {
-		this.synchronizeCheck = 1;
+		this.synchronizeCheck = 0;
 		this.isReadyToSynchronize = true;
 		Synchronizer synchronizer = new Synchronizer(this.thread.getName(),"");
 		bus.postEvent(synchronizer);
@@ -101,23 +121,12 @@ public class Process  implements Runnable {
 			Thread.sleep(500);
 		}
 		System.out.println("all is synchronized");
+		this.isReadyToSynchronize = false;
 	}
 
 	@Subscribe
 	public void onSynchronize(Synchronizer synchronizer){
-    	if(this.thread.getName().equals(synchronizer.getInitializer())){
-    		this.synchronizeCheck++;
-		}else {
-    		while(!this.isReadyToSynchronize){
-    			try {
-					Thread.sleep(500);
-				}
-				catch (Exception e) {
-
-				}
-			}
-			bus.postEvent(synchronizer);
-		}
+    	this.synchronizeCheck++;
 	}
 
     public void broadcast(Object payload){
@@ -127,11 +136,28 @@ public class Process  implements Runnable {
 		bus.postEvent(broadcastMessage);
 	}
 
+	public void broadcastDe(Object payload){
+		this.horloge++;
+		DeMessage deMessage = new DeMessage(this.horloge, payload, this.thread.getName());
+		System.out.println(Thread.currentThread().getName() + " send deValue : " + deMessage.getPayload());
+		bus.postEvent(deMessage);
+	}
+
 	@Subscribe
 	public void onBroadcast(BroadcastMessage broadcastMessage){
     	if(!broadcastMessage.getSender().equals(this.thread.getName())){
-			System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
+			//System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
 			this.horloge = Math.max(broadcastMessage.getStamping(),this.horloge) + 1;
+		}
+		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
+	}
+
+	@Subscribe
+	public void onBroadcastDe(DeMessage deMessage){
+		if(!deMessage.getSender().equals(this.thread.getName())){
+			this.horloge = Math.max(deMessage.getStamping(),this.horloge) + 1;
+			this.otherDe.set(Integer.valueOf(deMessage.getSender()), (Integer)deMessage.getPayload());
+			this.nbResultReceived++;
 		}
 		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
 	}
@@ -159,9 +185,10 @@ public class Process  implements Runnable {
 				this.token = token;
 			} else {
 				int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
-				System.out.println("sending token to " + to);
 				token.setReceiver(Integer.toString(to));
-				bus.postEvent(token);
+				if(!this.dead){
+					bus.postEvent(token);
+				}
 			}
 		}
 	}
