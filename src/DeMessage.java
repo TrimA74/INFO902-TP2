@@ -1,7 +1,7 @@
 public class DeMessage {
     private int stamping;
-    private String sender;
-    public DeMessage(int stamping, Object payload, String sender) {
+    private int sender;
+    public DeMessage(int stamping, Object payload, int sender) {
         this.stamping = stamping;
         this.payload = payload;
         this.sender = sender;
@@ -16,7 +16,7 @@ public class DeMessage {
 
     private Object payload;
 
-    public String getSender() {
+    public int getSender() {
         return sender;
     }
 }

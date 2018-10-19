@@ -1,25 +1,15 @@
 public class Synchronizer {
-    private String initializer;
-    private String responder;
+    private int initializer;
 
-    public Synchronizer(String initializer, String responder) {
+    public Synchronizer(int initializer) {
         this.initializer = initializer;
-        this.responder = responder;
     }
 
-    public String getInitializer() {
+    public int getInitializer() {
         return initializer;
     }
 
-    public void setInitializer(String initializer) {
+    public void setInitializer(int initializer) {
         this.initializer = initializer;
-    }
-
-    public String getResponder() {
-        return responder;
-    }
-
-    public void setResponder(String responder) {
-        this.responder = responder;
     }
 }

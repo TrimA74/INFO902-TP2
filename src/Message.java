@@ -1,4 +1,4 @@
-public class Message {
+public abstract class Message {
     private int stamping;
 
     public Message(int stamping, Object payload) {

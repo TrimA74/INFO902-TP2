@@ -3,12 +3,12 @@ import com.google.common.eventbus.Subscribe;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 
-public class Process  implements Runnable {
+public class Process  implements Runnable, Lamport {
     private Thread thread;
-    private EventBusService bus;
     private boolean alive;
     private boolean dead;
     private int horloge;
@@ -21,12 +21,10 @@ public class Process  implements Runnable {
     private boolean isReadyToSynchronize = false;
     private int de;
     private ArrayList<Integer> otherDe;
+    private Semaphore semaphore;
     private int nbResultReceived;
 
     public Process(String name, int nbThread){
-
-    	this.bus = EventBusService.getInstance();
-    	this.bus.registerSubscriber(this); // Auto enregistrement sur le bus afin que les methodes "@Subscribe" soient invoquees automatiquement.
 
 
     	this.thread = new Thread(this);
@@ -43,6 +41,7 @@ public class Process  implements Runnable {
     		otherDe.add(i,0);
 		}
 		this.nbResultReceived = 0;
+    	this.semaphore = new Semaphore(1);
 
     }
 
@@ -106,50 +105,18 @@ public class Process  implements Runnable {
 	this.dead = true;
     }
 
-    public void initToken(){
-    	int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
-		Token token = new Token(Integer.toString(to));
-		bus.postEvent(token);
-	}
 
-	public void synchronize() throws Exception {
-		this.synchronizeCheck = 0;
-		this.isReadyToSynchronize = true;
-		Synchronizer synchronizer = new Synchronizer(this.thread.getName(),"");
-		bus.postEvent(synchronizer);
-		while(this.synchronizeCheck < this.nb_thread){
-			Thread.sleep(500);
-		}
-		System.out.println("all is synchronized");
-		this.isReadyToSynchronize = false;
-	}
 
-	@Subscribe
-	public void onSynchronize(Synchronizer synchronizer){
-    	this.synchronizeCheck++;
-	}
 
-    public void broadcast(Object payload){
-    	this.horloge++;
-		BroadcastMessage broadcastMessage = new BroadcastMessage(this.horloge, payload, this.thread.getName());
-		System.out.println(Thread.currentThread().getName() + " send : " + broadcastMessage.getPayload());
-		bus.postEvent(broadcastMessage);
-	}
+
+
+
 
 	public void broadcastDe(Object payload){
 		this.horloge++;
 		DeMessage deMessage = new DeMessage(this.horloge, payload, this.thread.getName());
 		System.out.println(Thread.currentThread().getName() + " send deValue : " + deMessage.getPayload());
 		bus.postEvent(deMessage);
-	}
-
-	@Subscribe
-	public void onBroadcast(BroadcastMessage broadcastMessage){
-    	if(!broadcastMessage.getSender().equals(this.thread.getName())){
-			//System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
-			this.horloge = Math.max(broadcastMessage.getStamping(),this.horloge) + 1;
-		}
-		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
 	}
 
 	@Subscribe
@@ -178,40 +145,7 @@ public class Process  implements Runnable {
 		}
 	}
 
-	@Subscribe
-	public void onToken(Token token){
-		if(token.getReceiver().equals(this.thread.getName())) {
-			if (this.wantToken) {
-				this.token = token;
-			} else {
-				int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
-				token.setReceiver(Integer.toString(to));
-				if(!this.dead){
-					bus.postEvent(token);
-				}
-			}
-		}
-	}
 
-	public void release (){
-		this.wantToken = false;
-		int to = (Integer.valueOf(this.thread.getName())+1) % this.nb_thread;
-		this.token.setReceiver(Integer.toString(to));
-		bus.postEvent(token);
-		this.token= null;
-	}
-
-	public void request(){
-    	this.wantToken = true;
-    	while(this.token == null){
-    		try {
-				Thread.sleep(200);
-			} catch (Exception e){
-    			e.printStackTrace();
-			}
-
-		}
-	}
 
     public void waitStoped(){
 	while(!this.dead){
@@ -225,4 +159,30 @@ public class Process  implements Runnable {
     public void stop(){
     	this.alive = false;
     }
+
+	@Override
+	public int getClock() {
+		return this.horloge;
+	}
+
+	@Override
+	public void setClock(int horloge) {
+		lockClock();
+    	this.horloge = Math.max(horloge,this.horloge);
+    	unlockClock();
+	}
+
+	@Override
+	public void lockClock() {
+    	try {
+			semaphore.acquire();
+		}catch (Exception e){
+			System.out.println(e.toString());
+		}
+	}
+
+	@Override
+	public void unlockClock() {
+		semaphore.release();
+	}
 }

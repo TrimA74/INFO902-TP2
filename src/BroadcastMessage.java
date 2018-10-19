@@ -1,12 +1,12 @@
 public class BroadcastMessage extends Message {
 
-    private String sender;
-    public BroadcastMessage(int stamping, Object payload, String sender) {
+    private int sender;
+    public BroadcastMessage(int stamping, Object payload, int sender) {
         super(stamping, payload);
         this.sender = sender;
     }
 
-    public String getSender() {
+    public int getSender() {
         return sender;
     }
 }

@@ -1,11 +1,11 @@
 public class MessageTo extends Message {
-    public MessageTo(int stamping, Object payload, String receiver) {
+    public MessageTo(int stamping, Object payload, int receiver) {
         super(stamping, payload);
         this.receiver = receiver;
     }
-    private String receiver;
+    private int receiver;
 
-    public String getReceiver() {
+    public int getReceiver() {
         return receiver;
     }
 }

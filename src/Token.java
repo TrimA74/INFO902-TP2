@@ -1,15 +1,15 @@
 public class Token {
-    private String receiver;
+    private int receiver;
 
-    public Token(String receiver) {
+    public Token(int receiver) {
         this.receiver = receiver;
     }
 
-    public String getReceiver() {
+    public int getReceiver() {
         return receiver;
     }
 
-    public void setReceiver(String receiver) {
+    public void setReceiver(int receiver) {
         this.receiver = receiver;
     }
 }
