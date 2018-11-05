@@ -12,20 +12,18 @@ public class Process  implements Runnable, Lamport {
     private boolean alive;
     private boolean dead;
     private int horloge;
-    private static int nbProcess = 0;
-    private int id = Process.nbProcess++;
+    private int id;
     private Token token;
     private boolean wantToken;
     private int nb_thread;
     private int synchronizeCheck = 0;
     private boolean isReadyToSynchronize = false;
+    private Com myCom;
     private int de;
     private ArrayList<Integer> otherDe;
     private Semaphore semaphore;
-    private int nbResultReceived;
 
     public Process(String name, int nbThread){
-
 
     	this.thread = new Thread(this);
     	this.thread.setName(name);
@@ -40,8 +38,9 @@ public class Process  implements Runnable, Lamport {
     	for(int i=0; i < this.nb_thread;i++){
     		otherDe.add(i,0);
 		}
-		this.nbResultReceived = 0;
     	this.semaphore = new Semaphore(1);
+    	this.myCom = new Com(this);
+
 
     }
 
@@ -66,7 +65,7 @@ public class Process  implements Runnable, Lamport {
     		System.out.println(Thread.currentThread().getName() + " Loop : " + loop);
     		try{
 				Thread.sleep(500);
-				this.de = 1 + (int)(Math.random() * 6);
+			/*	this.de = 1 + (int)(Math.random() * 6);
 				broadcastDe(this.de);
 
 				while(nbResultReceived<this.nb_thread-1)
@@ -90,6 +89,8 @@ public class Process  implements Runnable, Lamport {
 				}
 
 				synchronize();
+            */
+
 
 
     		}catch(Exception e){
@@ -99,8 +100,8 @@ public class Process  implements Runnable, Lamport {
     	}
 
     	// liberation du bus
-    	this.bus.unRegisterSubscriber(this);
-    	this.bus = null;
+    	//this.bus.unRegisterSubscriber(this);
+    	//this.bus = null;
     	System.out.println(Thread.currentThread().getName() + " stoped");
 	this.dead = true;
     }
@@ -111,7 +112,7 @@ public class Process  implements Runnable, Lamport {
 
 
 
-
+/*
 	public void broadcastDe(Object payload){
 		this.horloge++;
 		DeMessage deMessage = new DeMessage(this.horloge, payload, this.thread.getName());
@@ -129,21 +130,8 @@ public class Process  implements Runnable, Lamport {
 		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
 	}
 
-	public void sendTo(Object payload, int to){
-		this.horloge++;
-    	MessageTo messageTo = new MessageTo(this.horloge,payload, Integer.toString(to));
-		System.out.println(Thread.currentThread().getName() + " send : " + messageTo.getPayload());
-		bus.postEvent(messageTo);
-	}
+*/
 
-	@Subscribe
-	public void onReceive(MessageTo messageTo){
-		if(messageTo.getReceiver().equals(this.thread.getName())){
-			System.out.println(Thread.currentThread().getName() + " receives: " + messageTo.getPayload() + " for " + this.thread.getName());
-			this.horloge = Math.max(messageTo.getStamping(),this.horloge) + 1;
-
-		}
-	}
 
 
 

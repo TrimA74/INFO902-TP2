@@ -8,7 +8,7 @@ public class Launcher{
         Process p2 = new Process("1",NB_THREAD);
         Process p3 = new Process("2",NB_THREAD);
 
-        ProcessToken pT = new ProcessToken(NB_THREAD);
+        // pT = new ProcessToken(NB_THREAD);
 
 
         try{

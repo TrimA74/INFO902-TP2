@@ -33,6 +33,7 @@ public class ProcessToken implements Runnable {
     @Subscribe
     public void onToken(Token token){
         if(token.getReceiver() == this.com.getIdProcess()) {
+            System.out.println("");
             if (this.wantToken) {
                 this.token = token;
             } else {

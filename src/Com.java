@@ -1,5 +1,6 @@
 import com.google.common.eventbus.Subscribe;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Com {
@@ -17,16 +18,13 @@ public class Com {
 
     private int synchronizeCheck=0;
 
-    public int getIdProcess() {
-        return idProcess;
-    }
-
     public Com(Lamport lamport) {
         this.lamport = lamport;
         this.bus = EventBusService.getInstance();
         this.bus.registerSubscriber(this); // Auto enregistrement sur le bus afin que les methodes "@Subscribe" soient invoquees automatiquement.
         this.idProcess = nbInstance;
         this.nbInstance++;
+        this.bal = new ArrayList<>();
         this.processToken = new ProcessToken(this);
         if(idProcess == 0){
             processToken.initToken();
@@ -38,11 +36,8 @@ public class Com {
 
     }
 
-    public void broadcast(Object payload){
-        lamport.setClock(lamport.getClock()+1);
-        BroadcastMessage broadcastMessage = new BroadcastMessage(lamport.getClock(), payload, this.idProcess);
-        System.out.println(Thread.currentThread().getName() + " send : " + broadcastMessage.getPayload());
-        bus.postEvent(broadcastMessage);
+    public int getIdProcess() {
+        return idProcess;
     }
 
     public EventBusService getBus() {
@@ -53,14 +48,44 @@ public class Com {
         return nbInstance;
     }
 
+
+
+    public void broadcast(Object payload){
+        lamport.setClock(lamport.getClock()+1);
+        BroadcastMessage broadcastMessage = new BroadcastMessage(lamport.getClock(), payload, this.idProcess);
+        System.out.println(this.idProcess + " send : " + broadcastMessage.getPayload());
+        bus.postEvent(broadcastMessage);
+    }
+
     @Subscribe
     public void onBroadcast(BroadcastMessage broadcastMessage){
         if(broadcastMessage.getSender() != this.idProcess){
             //System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
             this.lamport.setClock(broadcastMessage.getStamping());
+            this.bal.add(broadcastMessage);
         }
         System.out.println(this.idProcess + " stamping : " + this.lamport.getClock());
     }
+
+    public void sendTo(Object payload, int to){
+        lamport.setClock(lamport.getClock()+1);
+        MessageTo messageTo = new MessageTo(lamport.getClock(), payload, to);
+        System.out.println(this.idProcess + " send : " + messageTo.getPayload());
+        bus.postEvent(messageTo);
+    }
+
+    @Subscribe
+    public void onReceive(MessageTo messageTo){
+        if(messageTo.getReceiver() == this.idProcess){
+            System.out.println(this.idProcess + " receives: " + messageTo.getPayload() + " for " + this.idProcess);
+            lamport.setClock(Math.max(messageTo.getStamping(),lamport.getClock()) + 1);
+        }
+    }
+
+
+
+
+
 
     public void requestSC(){
         this.processToken.request();
@@ -87,10 +112,5 @@ public class Com {
     public void onSynchronize(Synchronizer synchronizer){
         this.synchronizeCheck++;
     }
-
-
-
-
-
 
 }
