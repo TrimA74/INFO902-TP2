@@ -17,6 +17,8 @@ public class Com {
     private List<Message> bal;
 
     private int synchronizeCheck=0;
+    private boolean wantToken = false;
+    private Token token;
 
     public Com(Lamport lamport) {
         this.lamport = lamport;
@@ -25,9 +27,16 @@ public class Com {
         this.idProcess = nbInstance;
         this.nbInstance++;
         this.bal = new ArrayList<>();
-        this.processToken = new ProcessToken(this);
+
+        //old version
+        /*this.processToken = new ProcessToken(this);
         if(idProcess == 0){
             processToken.initToken();
+        }*/
+
+        //new version
+        if(idProcess == 0){
+            initToken();
         }
 
     }
@@ -87,13 +96,7 @@ public class Com {
 
 
 
-    public void requestSC(){
-        this.processToken.request();
-    }
 
-    public void releaseSC(){
-        this.processToken.release();
-    }
 
     public void synchronize() throws Exception {
         Synchronizer synchronizer = new Synchronizer(this.idProcess);
@@ -111,6 +114,37 @@ public class Com {
     @Subscribe
     public void onSynchronize(Synchronizer synchronizer){
         this.synchronizeCheck++;
+    }
+
+
+
+
+
+    public void initToken(){
+        int to = (this.idProcess+1) % this.nbInstance;
+        this.token = new Token(to);
+        this.bus.postEvent(this.token);
+    }
+
+    @Subscribe
+    public void onToken(Token token){
+        if(token.getReceiver() == this.idProcess) {
+            if (this.wantToken) {
+                this.token = token;
+            } else {
+                int to = (this.idProcess+1) % this.nbInstance;
+                token.setReceiver(to);
+                this.bus.postEvent(token);
+            }
+        }
+    }
+
+    public void requestSC(){
+        this.processToken.request();
+    }
+
+    public void releaseSC(){
+        this.processToken.release();
     }
 
 }

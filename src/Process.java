@@ -156,7 +156,7 @@ public class Process  implements Runnable, Lamport {
 	@Override
 	public void setClock(int horloge) {
 		lockClock();
-    	this.horloge = Math.max(horloge,this.horloge);
+    	this.horloge = Math.max(horlogethis.horloge);
     	unlockClock();
 	}
 
