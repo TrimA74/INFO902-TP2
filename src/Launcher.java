@@ -20,5 +20,7 @@ public class Launcher{
         p1.stop();
         p2.stop();
         p3.stop();
+
+        System.out.println("launcher is finished");
     }
 }

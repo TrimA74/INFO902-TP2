@@ -2,6 +2,9 @@ import com.google.common.eventbus.Subscribe;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
@@ -22,6 +25,7 @@ public class Process  implements Runnable, Lamport {
     private int de;
     private ArrayList<Integer> otherDe;
     private Semaphore semaphore;
+    private int nbResultReceived;
 
     public Process(String name, int nbThread){
 
@@ -55,41 +59,57 @@ public class Process  implements Runnable, Lamport {
     */
 	
     public void run(){
-		System.out.println(this.thread.getId());
+    	try {
+			Thread.sleep(3000);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
     	int loop = 0;
 
 		System.out.println(Thread.currentThread().getName() + " id :" + this.id);
-		
+
     	while(this.alive){
 
     		System.out.println(Thread.currentThread().getName() + " Loop : " + loop);
     		try{
-				Thread.sleep(500);
-			/*	this.de = 1 + (int)(Math.random() * 6);
-				broadcastDe(this.de);
+
+				this.de = 1 + (int)(Math.random() * 6);
+				nbResultReceived = 0;
+				myCom.broadcast(this.de);
 
 				while(nbResultReceived<this.nb_thread-1)
 				{
+					Map<Integer, BroadcastMessage> map = this.myCom.getMessagesByType(BroadcastMessage.class);
+					for (Map.Entry<Integer, BroadcastMessage> message : map.entrySet()) {
+						this.otherDe.set(message.getValue().getSender(), (Integer) message.getValue().getPayload());
+						this.myCom.getBal().remove(message.getKey());
+						nbResultReceived++;
+					}
 					Thread.sleep(500);
 				}
 				boolean max = true;
 				for(int i=0; i<this.otherDe.size(); i++)
 				{
-					if(this.otherDe.get(i) >= this.de)
+					if(this.otherDe.get(i) > this.de)
+						max = false;
+					else if(this.otherDe.get(i) == this.de && i < this.myCom.getIdProcess())
 						max = false;
 				};
 
 				if(max){
-					request();
-					System.out.println("valuede" + this.de);
+					this.myCom.requestSC();
+					System.out.println("le process " + this.myCom.getIdProcess() + " a la valeur " + this.de);
 					PrintWriter writer = new PrintWriter("results.txt", "UTF-8");
 					writer.println(Thread.currentThread().getName() + " ecrit dans le fichier : " + this.de);
 					writer.close();
-					release();
+					this.myCom.releaseSC();
 				}
 
-				synchronize();
-            */
+                for(int i=0; i < this.nb_thread;i++){
+                    otherDe.set(i,0);
+                }
+
+				this.myCom.synchronize();
 
 
 
@@ -99,9 +119,7 @@ public class Process  implements Runnable, Lamport {
     		loop++;
     	}
 
-    	// liberation du bus
-    	//this.bus.unRegisterSubscriber(this);
-    	//this.bus = null;
+    	this.myCom.stop();
     	System.out.println(Thread.currentThread().getName() + " stoped");
 	this.dead = true;
     }
@@ -156,7 +174,7 @@ public class Process  implements Runnable, Lamport {
 	@Override
 	public void setClock(int horloge) {
 		lockClock();
-    	this.horloge = Math.max(horlogethis.horloge);
+    	this.horloge = Math.max(horloge, this.horloge);
     	unlockClock();
 	}
 

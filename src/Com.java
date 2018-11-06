@@ -1,7 +1,9 @@
 import com.google.common.eventbus.Subscribe;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Com {
 
@@ -19,6 +21,7 @@ public class Com {
     private int synchronizeCheck=0;
     private boolean wantToken = false;
     private Token token;
+    private boolean isAlive = true;
 
     public Com(Lamport lamport) {
         this.lamport = lamport;
@@ -57,6 +60,20 @@ public class Com {
         return nbInstance;
     }
 
+    public List<Message> getBal() {
+        return bal;
+    }
+
+    public <T extends Message> Map<Integer, T> getMessagesByType(Class<T> fType) {
+        Map<Integer, T> map = new HashMap<>();
+        for (int i=0; i<this.bal.size(); i++) {
+            if (this.bal.get(i).getClass() ==  fType) {
+                map.put(i, fType.cast(this.bal.get(i)));
+            }
+        }
+        return map;
+    }
+
 
 
     public void broadcast(Object payload){
@@ -69,11 +86,11 @@ public class Com {
     @Subscribe
     public void onBroadcast(BroadcastMessage broadcastMessage){
         if(broadcastMessage.getSender() != this.idProcess){
-            //System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.thread.getName());
+            System.out.println(Thread.currentThread().getName() + " receives: " + broadcastMessage.getPayload() + " for " + this.idProcess);
             this.lamport.setClock(broadcastMessage.getStamping());
             this.bal.add(broadcastMessage);
         }
-        System.out.println(this.idProcess + " stamping : " + this.lamport.getClock());
+        //System.out.println(this.idProcess + " stamping : " + this.lamport.getClock());
     }
 
     public void sendTo(Object payload, int to){
@@ -90,12 +107,6 @@ public class Com {
             lamport.setClock(Math.max(messageTo.getStamping(),lamport.getClock()) + 1);
         }
     }
-
-
-
-
-
-
 
 
     public void synchronize() throws Exception {
@@ -134,17 +145,45 @@ public class Com {
             } else {
                 int to = (this.idProcess+1) % this.nbInstance;
                 token.setReceiver(to);
-                this.bus.postEvent(token);
+                if(isAlive)
+                    this.bus.postEvent(token);
             }
         }
     }
 
     public void requestSC(){
-        this.processToken.request();
+        //old
+        //this.processToken.request();
+
+        //new
+        this.wantToken = true;
+        while(this.token == null){
+            try {
+                Thread.sleep(200);
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+
+        }
     }
 
     public void releaseSC(){
-        this.processToken.release();
+        //old
+        //this.processToken.release();
+
+        //new
+        this.wantToken = false;
+        int to = (this.idProcess+1) % this.nbInstance;
+        this.token.setReceiver(to);
+        bus.postEvent(token);
+        this.token= null;
+    }
+
+    public void stop(){
+        // liberation du bus
+        isAlive = false;
+        this.bus.unRegisterSubscriber(this);
+        this.bus = null;
     }
 
 }
