@@ -17,6 +17,8 @@ public class Com {
     private ProcessToken processToken;
 
     private List<Message> bal;
+    private List<Message> balSyncBroadcast;
+    private List<Message> balSyncSendTo;
 
     private int synchronizeCheck=0;
     private boolean wantToken = false;
@@ -30,6 +32,8 @@ public class Com {
         this.idProcess = nbInstance;
         this.nbInstance++;
         this.bal = new ArrayList<>();
+        this.balSyncBroadcast = new ArrayList<>();
+        this.balSyncSendTo = new ArrayList<>();
 
         //old version
         /*this.processToken = new ProcessToken(this);
@@ -64,6 +68,7 @@ public class Com {
         return bal;
     }
 
+
     public <T extends Message> Map<Integer, T> getMessagesByType(Class<T> fType) {
         Map<Integer, T> map = new HashMap<>();
         for (int i=0; i<this.bal.size(); i++) {
@@ -73,7 +78,6 @@ public class Com {
         }
         return map;
     }
-
 
 
     public void broadcast(Object payload){
@@ -105,9 +109,66 @@ public class Com {
         if(messageTo.getReceiver() == this.idProcess){
             System.out.println(this.idProcess + " receives: " + messageTo.getPayload() + " for " + this.idProcess);
             lamport.setClock(Math.max(messageTo.getStamping(),lamport.getClock()) + 1);
+            this.bal.add(messageTo);
         }
     }
 
+    public void sendToSync(Object payload, int dest){
+        lamport.setClock(lamport.getClock()+1);
+        MessageToSync messageToSync = new MessageToSync(lamport.getClock(), payload, dest, this.idProcess);
+        System.out.println(this.idProcess + " send sync : " + messageToSync.getPayload());
+        bus.postEvent(messageToSync);
+
+        //attendre l'accusé de reception
+        //TO DO
+        boolean find = false;
+        while(find){
+            for(int i=0; i<this.balSyncSendTo.size(); i++){
+                MessageToSync mess = (MessageToSync)this.balSyncSendTo.get(i);
+                if(mess.getSender() == dest && payload.equals("ack"))
+                {
+                    find = true;
+                }
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public Object receveFromSync(Object payload, int from){
+
+        boolean find = false;
+        while(find){
+            for(int i=0; i<this.balSyncSendTo.size(); i++){
+                MessageToSync mess = (MessageToSync)this.balSyncSendTo.get(i);
+                if(mess.getSender() == from && !payload.equals("ack"))
+                {
+                    find = true;
+                    //envoie accusé de réception
+                    MessageToSync ack = new MessageToSync(lamport.getClock(), "ack", from, this.idProcess);
+                    bus.postEvent(ack);
+                }
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return payload;
+    }
+
+    @Subscribe
+    public void onReceive(MessageToSync messageToSync){
+        if(messageToSync.getReceiver() == this.idProcess){
+            System.out.println(this.idProcess + " receives sync: " + messageToSync.getPayload() + " for " + this.idProcess);
+            lamport.setClock(Math.max(messageToSync.getStamping(),lamport.getClock()) + 1);
+            this.balSyncSendTo.add(messageToSync);
+        }
+    }
 
     public void synchronize() throws Exception {
         Synchronizer synchronizer = new Synchronizer(this.idProcess);
