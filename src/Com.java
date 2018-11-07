@@ -76,7 +76,7 @@ public class Com {
     public void broadcast(Object payload){
         lamport.setClock(lamport.getClock()+1);
         BroadcastMessage broadcastMessage = new BroadcastMessage(lamport.getClock(), payload, this.idProcess);
-        System.out.println(this.idProcess + " send : " + broadcastMessage.getPayload());
+        System.out.println(this.idProcess + " send de value : " + broadcastMessage.getPayload());
         bus.postEvent(broadcastMessage);
     }
 
@@ -112,7 +112,6 @@ public class Com {
         bus.postEvent(messageToSync);
 
         //attendre l'accusé de reception
-        //TO DO
         boolean find = false;
         while(!find){
             for(int i=0; i<this.balSyncSendTo.size(); i++){
