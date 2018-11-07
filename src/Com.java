@@ -35,13 +35,6 @@ public class Com {
         this.balSyncBroadcast = new ArrayList<>();
         this.balSyncSendTo = new ArrayList<>();
 
-        //old version
-        /*this.processToken = new ProcessToken(this);
-        if(idProcess == 0){
-            processToken.initToken();
-        }*/
-
-        //new version
         if(idProcess == 0){
             initToken();
         }
@@ -94,7 +87,6 @@ public class Com {
             this.lamport.setClock(broadcastMessage.getStamping());
             this.bal.add(broadcastMessage);
         }
-        //System.out.println(this.idProcess + " stamping : " + this.lamport.getClock());
     }
 
     public void sendTo(Object payload, int to){
@@ -122,11 +114,12 @@ public class Com {
         //attendre l'accusé de reception
         //TO DO
         boolean find = false;
-        while(find){
+        while(!find){
             for(int i=0; i<this.balSyncSendTo.size(); i++){
                 MessageToSync mess = (MessageToSync)this.balSyncSendTo.get(i);
-                if(mess.getSender() == dest && payload.equals("ack"))
+                if(mess.getSender() == dest && mess.getPayload().equals("ack"))
                 {
+                    this.balSyncSendTo.remove(i);
                     find = true;
                 }
             }
@@ -136,16 +129,20 @@ public class Com {
                 e.printStackTrace();
             }
         }
+
+
     }
 
     public Object receveFromSync(Object payload, int from){
 
         boolean find = false;
-        while(find){
+        while(!find){
             for(int i=0; i<this.balSyncSendTo.size(); i++){
                 MessageToSync mess = (MessageToSync)this.balSyncSendTo.get(i);
                 if(mess.getSender() == from && !payload.equals("ack"))
                 {
+                    this.balSyncSendTo.remove(i);
+
                     find = true;
                     //envoie accusé de réception
                     MessageToSync ack = new MessageToSync(lamport.getClock(), "ack", from, this.idProcess);
@@ -159,16 +156,85 @@ public class Com {
             }
         }
         return payload;
+
+
     }
 
     @Subscribe
     public void onReceive(MessageToSync messageToSync){
         if(messageToSync.getReceiver() == this.idProcess){
-            System.out.println(this.idProcess + " receives sync: " + messageToSync.getPayload() + " for " + this.idProcess);
             lamport.setClock(Math.max(messageToSync.getStamping(),lamport.getClock()) + 1);
             this.balSyncSendTo.add(messageToSync);
         }
     }
+
+
+
+
+    public void broadcastSync(Object o, int from){
+        if(this.idProcess == from)
+        {
+            int cpt = 0;
+            while(cpt<nbInstance-1){
+                for(int i =0; i<this.balSyncBroadcast.size(); i++){
+                    if(this.balSyncBroadcast.get(i).getPayload().equals("init")){
+                        cpt++;
+                        this.balSyncBroadcast.remove(i);
+                    }
+                }
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            BroadcastMessageSync mess = new BroadcastMessageSync(lamport.getClock(), o, this.idProcess, -1);
+            bus.postEvent(mess);
+
+        }else
+        {
+            BroadcastMessageSync mess = new BroadcastMessageSync(lamport.getClock(), "init", this.idProcess, from);
+            bus.postEvent(mess);
+
+            boolean find = false;
+            while(!find){
+                for(int i =0; i<this.balSyncBroadcast.size(); i++){
+                    BroadcastMessageSync messRecu = (BroadcastMessageSync) this.balSyncBroadcast.get(i);
+                    if(!messRecu.getPayload().equals("init") && messRecu.getSender()==from){
+                        find = true;
+                        o = messRecu.getPayload();
+                        System.out.println("process "+ this.idProcess+" a recu broadcast sync avec obj: " + o);
+                        this.balSyncBroadcast.remove(i);
+                    }
+                }
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    @Subscribe
+    public void onReceive(BroadcastMessageSync broadcastMessageSync){
+        if(broadcastMessageSync.getPayload().toString().equals("init"))
+        {
+            if(broadcastMessageSync.getReceiver() == this.idProcess){
+                lamport.setClock(Math.max(broadcastMessageSync.getStamping(),lamport.getClock()) + 1);
+                this.balSyncBroadcast.add(broadcastMessageSync);
+            }
+        }
+        else
+        {
+            System.out.println(broadcastMessageSync.getPayload());
+            lamport.setClock(Math.max(broadcastMessageSync.getStamping(),lamport.getClock()) + 1);
+            this.balSyncBroadcast.add(broadcastMessageSync);
+        }
+
+    }
+
 
     public void synchronize() throws Exception {
         Synchronizer synchronizer = new Synchronizer(this.idProcess);
@@ -213,10 +279,6 @@ public class Com {
     }
 
     public void requestSC(){
-        //old
-        //this.processToken.request();
-
-        //new
         this.wantToken = true;
         while(this.token == null){
             try {
@@ -229,10 +291,6 @@ public class Com {
     }
 
     public void releaseSC(){
-        //old
-        //this.processToken.release();
-
-        //new
         this.wantToken = false;
         int to = (this.idProcess+1) % this.nbInstance;
         this.token.setReceiver(to);

@@ -86,13 +86,31 @@ public class Process  implements Runnable, Lamport {
 		}
     	int loop = 0;
 
-		System.out.println("name" + Thread.currentThread().getName());
+		//System.out.println("name" + Thread.currentThread().getName());
 
-    	while(this.alive){
+    	while(this.alive && loop<5){
 
     		System.out.println(Thread.currentThread().getName() + " Loop : " + loop);
     		try{
 
+				this.myCom.broadcastSync("coucou", 1);
+
+
+    			//test sendSync
+				/*if(this.myCom.getIdProcess() == 0) {
+					this.myCom.sendToSync("coucou", 1);
+				}
+				else
+				{
+
+					String m = "";
+					this.myCom.receveFromSync(m, 0);
+
+				}
+*/
+//-------------------------------------------------------------------------------------------------------------------
+    			//jeu de de
+/*
 				this.de = 1 + (int)(Math.random() * 6);
 				int nbResultReceived = 0;
 				myCom.broadcast(this.de);
@@ -130,7 +148,7 @@ public class Process  implements Runnable, Lamport {
                 }
 
 				this.myCom.synchronize();
-
+*/
 
 
     		}catch(Exception e){

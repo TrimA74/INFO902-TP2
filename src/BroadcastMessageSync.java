@@ -1,21 +1,17 @@
-public class MessageToSync extends Message {
+public class BroadcastMessageSync extends Message {
 
     private int sender;
-
     private int receiver;
 
-
-
-    public MessageToSync(int stamping, Object payload, int receiver, int sender) {
+    public BroadcastMessageSync(int stamping, Object payload, int sender, int receiver) {
         super(stamping, payload);
-        this.receiver = receiver;
         this.sender = sender;
+        this.receiver = receiver;
     }
 
-    public int getReceiver() {
+    public int getReceiver(){
         return receiver;
     }
-
     public int getSender() {
         return sender;
     }
