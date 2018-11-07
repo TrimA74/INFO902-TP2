@@ -9,33 +9,60 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
-
+/**
+ *
+ */
 public class Process  implements Runnable, Lamport {
+	/**
+	 * Thread courant
+	 */
     private Thread thread;
-    private boolean alive;
+	/***
+	 * Pour savoir si le thread tourne toujours, il s'arrête qu'on a appel stop()
+	 */
+	private boolean alive;
+	/**
+	 * Pour savoir si le thread est mort
+	 */
     private boolean dead;
-    private int horloge;
-    private int id;
-    private Token token;
-    private boolean wantToken;
-    private int nb_thread;
-    private int synchronizeCheck = 0;
-    private boolean isReadyToSynchronize = false;
+	/**
+	 * Notre horloge
+	 */
+	private int horloge;
+	/**
+	 * Le nombre de thread
+	 */
+	private int nb_thread;
+	/**
+	 * Notre middleware
+	 */
     private Com myCom;
-    private int de;
+	/**
+	 * Notre dé
+	 */
+	private int de;
+	/**
+	 * Stocke la valeur de chaque dé
+	 */
     private ArrayList<Integer> otherDe;
-    private Semaphore semaphore;
-    private int nbResultReceived;
+	/**
+	 * Semaphore pour éviter que l'horloge soit modifier par plusieurs thread en même temps
+	 */
+	private Semaphore semaphore;
 
-    public Process(String name, int nbThread){
+
+	/**
+	 *
+	 * @param name Nom du process
+	 * @param nbThread Nombre de thread
+	 */
+	public Process(String name, int nbThread){
 
     	this.thread = new Thread(this);
     	this.thread.setName(name);
     	this.alive = true;
     	this.dead = false;
     	this.horloge = 0;
-    	this.token = null;
-    	this.wantToken = false;
     	this.nb_thread = nbThread;
     	this.thread.start();
     	otherDe = new ArrayList<>();
@@ -48,16 +75,9 @@ public class Process  implements Runnable, Lamport {
 
     }
 
-    // Declaration de la methode de callback invoquee lorsqu'un message de type Bidule transite sur le bus
-    /*
-	@Subscribe
-    public void onTrucSurBus(Message message){
-    	System.out.println(Thread.currentThread().getName() + " receives: " + message.getPayload() + " for " + this.thread.getName());
-    	this.horloge = Math.max(message.getStamping(),this.horloge) + 1;
-    }
-
-    */
-	
+	/**
+	 * fonction main de notre thread
+	 */
     public void run(){
     	try {
 			Thread.sleep(3000);
@@ -66,7 +86,7 @@ public class Process  implements Runnable, Lamport {
 		}
     	int loop = 0;
 
-		System.out.println(Thread.currentThread().getName() + " id :" + this.id);
+		System.out.println("name" + Thread.currentThread().getName());
 
     	while(this.alive){
 
@@ -74,7 +94,7 @@ public class Process  implements Runnable, Lamport {
     		try{
 
 				this.de = 1 + (int)(Math.random() * 6);
-				nbResultReceived = 0;
+				int nbResultReceived = 0;
 				myCom.broadcast(this.de);
 
 				while(nbResultReceived<this.nb_thread-1)
@@ -124,53 +144,26 @@ public class Process  implements Runnable, Lamport {
 	this.dead = true;
     }
 
-
-
-
-
-
-
-/*
-	public void broadcastDe(Object payload){
-		this.horloge++;
-		DeMessage deMessage = new DeMessage(this.horloge, payload, this.thread.getName());
-		System.out.println(Thread.currentThread().getName() + " send deValue : " + deMessage.getPayload());
-		bus.postEvent(deMessage);
-	}
-
-	@Subscribe
-	public void onBroadcastDe(DeMessage deMessage){
-		if(!deMessage.getSender().equals(this.thread.getName())){
-			this.horloge = Math.max(deMessage.getStamping(),this.horloge) + 1;
-			this.otherDe.set(Integer.valueOf(deMessage.getSender()), (Integer)deMessage.getPayload());
-			this.nbResultReceived++;
-		}
-		System.out.println(this.thread.getName() + " stamping : " + this.horloge);
-	}
-
-*/
-
-
-
-
-    public void waitStoped(){
-	while(!this.dead){
-	    try{
-		Thread.sleep(500);
-	    }catch(Exception e){
-		e.printStackTrace();
-	    }
-	}
-    }
+	/**
+	 * Pour stopper le thread
+	 */
     public void stop(){
     	this.alive = false;
     }
 
+	/**
+	 *
+	 * @return Retourne l'horloge
+	 */
 	@Override
 	public int getClock() {
 		return this.horloge;
 	}
 
+	/**
+	 * Set l'horloge courante à la valeur max en la courante et celle passer en paramètre
+	 * @param horloge La valeur de l'horloge
+	 */
 	@Override
 	public void setClock(int horloge) {
 		lockClock();
@@ -178,6 +171,9 @@ public class Process  implements Runnable, Lamport {
     	unlockClock();
 	}
 
+	/**
+	 * Bloque l'accès sur l'horloge avec le sémaphore
+	 */
 	@Override
 	public void lockClock() {
     	try {
@@ -187,6 +183,9 @@ public class Process  implements Runnable, Lamport {
 		}
 	}
 
+	/**
+	 * Libére l'accès sur l'horloge avec le sémaphore
+	 */
 	@Override
 	public void unlockClock() {
 		semaphore.release();
